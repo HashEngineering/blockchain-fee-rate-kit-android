@@ -1,66 +1,93 @@
 package io.horizontalsystems.feeratekit
 
-import android.content.Context
-import androidx.room.Room
-import io.horizontalsystems.feeratekit.api.FeeRatesProvider
-import io.horizontalsystems.feeratekit.storage.KitDatabase
-import io.horizontalsystems.feeratekit.storage.Storage
+import io.horizontalsystems.feeratekit.model.Coin
+import io.horizontalsystems.feeratekit.model.FeeProviderConfig
+import io.horizontalsystems.feeratekit.model.FeeRate
+import io.horizontalsystems.feeratekit.providers.FeeRateProviderManager
+import io.horizontalsystems.feeratekit.storage.InMemoryStorage
+import io.reactivex.Single
+import io.reactivex.functions.Function5
 
-class FeeRateKit(infuraProjectId: String? = null, infuraProjectSecret: String? = null, private val context: Context, var listener: Listener? = null) : FeeRateSyncer.Listener {
+class FeeRateKit(providerConfig: FeeProviderConfig) {
 
-    interface Listener {
-        fun onRefresh(rates: List<FeeRate>)
-    }
+    private val providerManager: FeeRateProviderManager =
+        FeeRateProviderManager(providerConfig, InMemoryStorage())
 
-    private val storage: IStorage
-    private val feeRateSyncer: FeeRateSyncer
-
-    init {
-        val apiFeeRate = FeeRatesProvider(infuraProjectId, infuraProjectSecret)
-
-        storage = Storage(buildDatabase())
-        feeRateSyncer = FeeRateSyncer(storage, apiFeeRate, this)
-        feeRateSyncer.start()
-    }
-
-    fun bitcoin(): FeeRate {
+    fun bitcoin(): Single<FeeRate> {
         return getRate(Coin.BITCOIN)
     }
 
-    fun bitcoinCash(): FeeRate {
+    fun litecoin(): Single<FeeRate> {
+        return getRate(Coin.LITECOIN)
+    }
+
+    fun bitcoinCash(): Single<FeeRate> {
         return getRate(Coin.BITCOIN_CASH)
     }
 
-    fun dash(): FeeRate {
+    fun dash(): Single<FeeRate> {
         return getRate(Coin.DASH)
     }
 
-    fun groestlcoin(): FeeRate {
+    fun groestlcoin(): Single<FeeRate> {
         return getRate(Coin.GROESTLCOIN)
     }
 
-    fun ethereum(): FeeRate {
+    fun ethereum(): Single<FeeRate> {
         return getRate(Coin.ETHEREUM)
     }
 
-    fun refresh() {
-        feeRateSyncer.refresh()
+    fun getRate(coinCode: String): Single<FeeRate> {
+
+        Coin.getCoinByCode(code = coinCode)?.also {
+            return getRate(it)
+        }
+
+        throw IllegalArgumentException()
     }
 
-    override fun onUpdate(rates: List<FeeRate>) {
-        listener?.onRefresh(rates)
+    @Suppress("UNCHECKED_CAST")
+    private fun getStatusData(coin: Coin): Single<Any> {
+
+        return (getRate(coin) as Single<Any>).onErrorResumeNext {
+            Single.just(Pair(coin.name, "Error:${it.localizedMessage}"))
+        }
     }
 
-    private fun getRate(coin: Coin): FeeRate {
-        return storage.getFeeRate(coin) ?: coin.defaultRate()
+    fun statusInfo(): Single<Map<String, Any>>? {
+
+        return Single.zip(
+            getStatusData(Coin.BITCOIN),
+            getStatusData(Coin.LITECOIN),
+            getStatusData(Coin.ETHEREUM),
+            getStatusData(Coin.BITCOIN_CASH),
+            getStatusData(Coin.DASH),
+            Function5<Any, Any, Any, Any, Any, Array<Any>> { btcRate, ltcRate, ethRate, bchRate, dashRate ->
+                arrayOf(btcRate, ltcRate, ethRate, bchRate, dashRate)
+            })
+            .map { rates ->
+
+                val statusInfo = LinkedHashMap<String, Any>()
+
+                for (rate in rates) {
+                    if (rate::class == FeeRate::class) {
+                        (rate as FeeRate).let {
+                            statusInfo.put(
+                                it.coin.name,
+                                mapOf(
+                                    Pair("HighPriority", it.highPriority),
+                                    Pair("MediumPriority", it.mediumPriority),
+                                    Pair("LowPriority", it.lowPriority)
+                                )
+                            )
+                        }
+                    } else statusInfo.plusAssign((rate as Pair<String, String>))
+                }
+                statusInfo
+            }
     }
 
-    private fun buildDatabase(): KitDatabase {
-        return Room
-            .databaseBuilder(context, KitDatabase::class.java, "fee-rate-database")
-            .fallbackToDestructiveMigration()
-            .allowMainThreadQueries()
-            .addMigrations()
-            .build()
+    private fun getRate(coin: Coin): Single<FeeRate> {
+        return providerManager.getFeeRateProvider(coin).getFeeRates()
     }
 }
