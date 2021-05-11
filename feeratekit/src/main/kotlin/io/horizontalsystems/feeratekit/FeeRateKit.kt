@@ -7,6 +7,7 @@ import io.horizontalsystems.feeratekit.providers.FeeRateProviderManager
 import io.horizontalsystems.feeratekit.storage.InMemoryStorage
 import io.reactivex.Single
 import io.reactivex.functions.Function5
+import java.util.*
 
 class FeeRateKit(providerConfig: FeeProviderConfig) {
 
