@@ -7,6 +7,7 @@ import io.horizontalsystems.feeratekit.providers.FeeRateProviderManager
 import io.horizontalsystems.feeratekit.storage.InMemoryStorage
 import io.reactivex.Single
 import io.reactivex.functions.Function5
+import java.util.*
 
 class FeeRateKit(providerConfig: FeeProviderConfig) {
 
@@ -27,6 +28,10 @@ class FeeRateKit(providerConfig: FeeProviderConfig) {
 
     fun dash(): Single<FeeRate> {
         return getRate(Coin.DASH)
+    }
+
+    fun groestlcoin(): Single<FeeRate> {
+        return getRate(Coin.GROESTLCOIN)
     }
 
     fun ethereum(): Single<FeeRate> {

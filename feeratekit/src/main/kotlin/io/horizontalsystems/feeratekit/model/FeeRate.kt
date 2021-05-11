@@ -27,6 +27,7 @@ enum class Coin(
     LITECOIN("LTC", 5 * 60),
     BITCOIN_CASH("BCH", 0),
     DASH("DASH", 0),
+    GROESTLCOIN("GRS", 0),
     ETHEREUM("ETH", 3 * 60);
 
     companion object {
@@ -77,6 +78,16 @@ enum class Coin(
                     highPriorityDuration = 1,
                     date = Date().time / 1000
             )
+            GROESTLCOIN -> FeeRate(
+                    coin = this,
+                    lowPriority = 20,
+                    lowPriorityDuration = 1,
+                    mediumPriority = 20,
+                    mediumPriorityDuration = 1,
+                    highPriority = 40,
+                    highPriorityDuration = 1,
+                    date = Date().time / 1000
+            )
             ETHEREUM -> FeeRate(
                     coin = this,
                     lowPriority = 13_000_000_000,
@@ -96,6 +107,7 @@ enum class Coin(
             LITECOIN -> 5_000
             BITCOIN_CASH -> 500
             DASH -> 500
+            GROESTLCOIN -> 500
             ETHEREUM -> 3_000_000_000_000
         }
     }
@@ -106,6 +118,7 @@ enum class Coin(
             LITECOIN -> 1
             BITCOIN_CASH -> 1
             DASH -> 1
+            GROESTLCOIN -> 1
             ETHEREUM -> 100_000_000
         }
     }
